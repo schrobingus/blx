@@ -1,0 +1,91 @@
+#!/bin/sh -e
+
+get() {
+	if grep -w "$1" /etc/modulus/blx/ins; then
+		echo "-> $1 is already installed."
+		exit 0
+	fi
+
+	echo "-> Checking repo for $1..."
+	if ! [ -d "$REPO/$1" ]; then
+		echo "-! Package $1 not found!"
+		exit 1
+	fi
+	cd "$REPO/$1"
+	
+	echo "--> Package found! Downloading $1..."
+	./get
+
+	echo "--> Installing $1... "
+	./add
+	echo $1 > /etc/modulus/blx/ins
+
+	echo "-> Successfully installed $1!"
+}
+
+add() {
+	if grep -w "$1" /etc/modulus/blx/ins; then
+                echo "-> $1 is already installed."
+                exit 0
+        fi
+
+	echo "--> Checking if anything needs to be downloaded..."
+	if [ -f "get" ]; then
+		echo "--> Found instructions for download!"
+		./get
+	fi
+
+	echo "--> Installing $1..."
+	./add
+	echo $1 > /etc/modulus/blx/ins
+
+	echo "-> Successfully installed $1!"
+}
+
+remove() {
+        if ! grep -w "$1" /etc/modulus/blx/ins; then
+                echo "-! Package $1 not found!"
+                exit 1
+        fi
+
+	echo "-> Finding folder for $1..."
+	if ! [ -d "$REPO/$1" ]; then
+		echo "-! Didn't find source directory!"
+		exit 1
+	fi
+	cd "$REPO/$1"
+
+	echo "--> Package found! Removing $1..."
+	./rem
+
+	touch /etc/modulus/blx/ins-tmp
+	grep -v $1 /etc/modulus/blx/ins > /etc/modulus/blx/ins-tmp || true 
+	rm /etc/modulus/blx/ins 
+	mv /etc/modulus/blx/ins-tmp /etc/modulus/blx/ins
+
+	echo "-> Successfully removed $1!"
+}
+
+update() {
+	echo "-> Updating repositories..."
+	cd $REPO
+	git pull
+	echo "-> Finished!"
+}
+
+ban() {
+	echo "-> Banning package $1..."
+	echo $1 > /etc/modulus/blx/ban
+	echo "-> Successfully banned $1 from installing!"
+}
+
+unban() {
+	echo "-> Unbanning package $1..."
+	touch /etc/modulus/blx/ban-tmp
+	grep -v $1 /etc/modulus/blx/ban > /etc/modulus/blx/ban-tmp 
+	rm /etc/modulus/ban 
+       	mv /etc/modulus/blx/ban-tmp /etc/modulus/blx/ban
+	echo "-> $1 is now installable!"
+}
+
+$1 $2
