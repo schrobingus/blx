@@ -1,8 +1,14 @@
 # Blocks Package Manager
 Blocks, or known in the command line as "blx" is an adaptable and monolithic package manager built for Modulus Linux written in POSIX shell. It's aim is to be as flexable and minimal as possible, while still giving the user control over everything.
 
+
+
 ## Installing
-Blocks is in a very unusable state at the moment that is specific to my current setup (and the Modulus file structure), but this will eventually change. For now, if you want to test it, I'd highly advise doing it in a VM as this is currently experimental software. Instructions will be given once the repositories are up.
+Blocks is in a very unusable state at the moment that is specific to my current setup (and the Modulus file structure), but this will eventually change. For now, if you want to test it, I'd highly advise doing it in a VM as this is currently experimental software. 
+
+To install, just simply copy the blx script into the /usr/bin directory (and mark it as executable).
+
+
 
 ## Features
 - Easy to understand package structure.
@@ -13,6 +19,8 @@ Blocks is in a very unusable state at the moment that is specific to my current 
 - Banning packages also applies to dependencies.
 - Manage, add, and remove features with ease as it doesn't have to be compiled.
 - Only dependency is a reliable set of UNIX core utilities.
+
+
 
 ## Blocks vs KISS
 Blocks is heavily inspired by the KISS package manager, but there are quite a few differences to mention, both pros and cons of each.
