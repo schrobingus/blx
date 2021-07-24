@@ -1,6 +1,11 @@
 #!/bin/sh -e
 
 get() {
+	if grep -w "$1" /etc/modulus/blx/ban; then
+		echo "-> $1 is currently banned."
+		exit 0
+	fi
+
 	if grep -w "$1" /etc/modulus/blx/ins; then
 		echo "-> $1 is already installed."
 		exit 0
@@ -24,6 +29,11 @@ get() {
 }
 
 add() {
+	if grep -w "$1" /etc/modulus/blx/ban; then
+		echo "-> $1 is currently banned."
+		exit 0
+	fi
+
 	if grep -w "$1" /etc/modulus/blx/ins; then
                 echo "-> $1 is already installed."
                 exit 0
@@ -44,11 +54,11 @@ add() {
 
 remove() {
         if ! grep -w "$1" /etc/modulus/blx/ins; then
-                echo "-! Package $1 not found!"
+                echo "-! Package $1 not installed!"
                 exit 1
         fi
 
-	echo "-> Finding folder for $1..."
+	echo "-> Finding package $1..."
 	if ! [ -d "$REPO/$1" ]; then
 		echo "-! Didn't find source directory!"
 		exit 1
@@ -74,16 +84,26 @@ update() {
 }
 
 ban() {
+	if grep -w "$1" /etc/modulus/blx/ban; then
+		echo "-> $1 is already banned."
+		exit 0
+	fi
+
 	echo "-> Banning package $1..."
 	echo $1 > /etc/modulus/blx/ban
 	echo "-> Successfully banned $1 from installing!"
 }
 
 unban() {
+	if ! grep -w "$1" /etc/modulus/blx/ban; then
+		echo "-! $1 isn't banned!"
+		exit 1
+	fi
+
 	echo "-> Unbanning package $1..."
 	touch /etc/modulus/blx/ban-tmp
-	grep -v $1 /etc/modulus/blx/ban > /etc/modulus/blx/ban-tmp 
-	rm /etc/modulus/ban 
+	grep -v $1 /etc/modulus/blx/ban > /etc/modulus/blx/ban-tmp || true 
+	rm /etc/modulus/blx/ban 
        	mv /etc/modulus/blx/ban-tmp /etc/modulus/blx/ban
 	echo "-> $1 is now installable!"
 }
