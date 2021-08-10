@@ -1,12 +1,12 @@
 #!/bin/sh -e
 
 get() {
-	if grep -w "$1" /etc/modulus/blx/ban; then
+	if grep -w "$1" /etc/modulus/blx/ban > /dev/null 2>&1; then
 		echo "-> $1 is currently banned."
 		exit 0
 	fi
 
-	if grep -w "$1" /etc/modulus/blx/ins; then
+	if grep -w "$1" /etc/modulus/blx/ins > /dev/null 2>&1; then
 		echo "-> $1 is already installed."
 		exit 0
 	fi
@@ -36,12 +36,12 @@ get() {
 }
 
 add() {
-	if grep -w "${PWD##*/}" /etc/modulus/blx/ban; then
+	if grep -w "${PWD##*/}" /etc/modulus/blx/ban > /dev/null 2>&1; then
 		echo "-> ${PWD##*/} is currently banned."
 		exit 0
 	fi
 
-	if grep -w "${PWD##*/}" /etc/modulus/blx/ins; then
+	if grep -w "${PWD##*/}" /etc/modulus/blx/ins > /dev/null 2>&1; then
                 echo "-> ${PWD##*/} is already installed."
                 exit 0
         fi
@@ -50,6 +50,13 @@ add() {
 	if [ -f "get" ]; then
 		echo "--> Found instructions for download!"
 		./get
+	fi
+	
+	if [ -f "dep" ]; then
+		echo "-> Package is calling for dependencies..."
+		while read DEPENDS; do
+			get $DEPENDS
+		done < dep
 	fi
 
 	echo "--> Installing ${PWD##*/}..."
@@ -60,7 +67,7 @@ add() {
 }
 
 remove() {
-        if ! grep -w "$1" /etc/modulus/blx/ins; then
+        if ! grep -w "$1" /etc/modulus/blx/ins > /dev/null 2>&1; then
                 echo "-! Package $1 not installed!"
                 exit 1
         fi
@@ -91,12 +98,12 @@ update() {
 }
 
 ban() {
-	if grep -w "$1" /etc/modulus/blx/ban; then
+	if grep -w "$1" /etc/modulus/blx/ban > /dev/null 2>&1; then
 		echo "-> $1 is already banned."
 		exit 0
 	fi
 	
-	if grep -w "$1" /etc/modulus/blx/ins; then
+	if grep -w "$1" /etc/modulus/blx/ins > /dev/null 2>&1; then
 		remove $1
 	fi
 
@@ -106,7 +113,7 @@ ban() {
 }
 
 unban() {
-	if ! grep -w "$1" /etc/modulus/blx/ban; then
+	if ! grep -w "$1" /etc/modulus/blx/ban > /dev/null 2>&1; then
 		echo "-! $1 isn't banned!"
 		exit 1
 	fi
@@ -117,6 +124,31 @@ unban() {
 	rm /etc/modulus/blx/ban 
        	mv /etc/modulus/blx/ban-tmp /etc/modulus/blx/ban
 	echo "-> $1 is now installable!"
+}
+
+info() {
+	if ! [ -d "$REPO/$1" ]; then
+		echo "-! Package $1 not found!"
+		exit 1
+	fi
+	cd "$REPO/$1"
+
+	echo "Name: $1"
+	if [ -f "aut" ]; then
+		echo "Author: $(cat aut)"
+	fi
+
+	if [ -f "dsc" ]; then
+		echo "Description: $(cat dsc)"
+	fi
+
+	if [ -f "dep" ]; then
+		echo "Depends: $(echo $(cat dep))"
+	fi
+
+	if [ -f "tag" ]; then
+		echo "Tags: $(echo $(cat tag))"
+	fi
 }
 
 $1 $2
