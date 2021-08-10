@@ -20,22 +20,29 @@ get() {
 	
 	echo "--> Package found! Downloading $1..."
 	./get
+	
+	if [ -f "dep" ]; then
+		echo "-> Package is calling for dependencies..."
+		while read DEPENDS; do
+			get $DEPENDS
+		done < dep
+	fi
 
 	echo "--> Installing $1... "
 	./add
-	echo $1 > /etc/modulus/blx/ins
+	echo $1 >> /etc/modulus/blx/ins
 
 	echo "-> Successfully installed $1!"
 }
 
 add() {
-	if grep -w "$1" /etc/modulus/blx/ban; then
-		echo "-> $1 is currently banned."
+	if grep -w "${PWD##*/}" /etc/modulus/blx/ban; then
+		echo "-> ${PWD##*/} is currently banned."
 		exit 0
 	fi
 
-	if grep -w "$1" /etc/modulus/blx/ins; then
-                echo "-> $1 is already installed."
+	if grep -w "${PWD##*/}" /etc/modulus/blx/ins; then
+                echo "-> ${PWD##*/} is already installed."
                 exit 0
         fi
 
@@ -45,11 +52,11 @@ add() {
 		./get
 	fi
 
-	echo "--> Installing $1..."
+	echo "--> Installing ${PWD##*/}..."
 	./add
-	echo $1 > /etc/modulus/blx/ins
+	echo ${PWD##*/} >> /etc/modulus/blx/ins
 
-	echo "-> Successfully installed $1!"
+	echo "-> Successfully installed ${PWD##*/}!"
 }
 
 remove() {
@@ -88,9 +95,13 @@ ban() {
 		echo "-> $1 is already banned."
 		exit 0
 	fi
+	
+	if grep -w "$1" /etc/modulus/blx/ins; then
+		remove $1
+	fi
 
 	echo "-> Banning package $1..."
-	echo $1 > /etc/modulus/blx/ban
+	echo $1 >> /etc/modulus/blx/ban
 	echo "-> Successfully banned $1 from installing!"
 }
 
