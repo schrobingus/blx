@@ -1,12 +1,21 @@
 #!/bin/sh -e
 
+check() {
+	if [ "$(id -u)" -ne "0" ]; then
+		echo '-! Superuser permissions are required, please launch again as root.'
+		exit 1
+	fi
+}
+
 get() {
-	if grep -w "$1" /etc/modulus/blx/ban > /dev/null 2>&1; then
+	check
+
+	if grep -w "$1" /etc/blx/ban > /dev/null 2>&1; then
 		echo "-> $1 is currently banned."
 		exit 0
 	fi
 
-	if grep -w "$1" /etc/modulus/blx/ins > /dev/null 2>&1; then
+	if grep -w "$1" /etc/blx/ins > /dev/null 2>&1; then
 		echo "-> $1 is already installed."
 		exit 0
 	fi
@@ -30,18 +39,20 @@ get() {
 
 	echo "--> Installing $1... "
 	./add
-	echo $1 >> /etc/modulus/blx/ins
+	echo $1 >> /etc/blx/ins
 
 	echo "-> Successfully installed $1!"
 }
 
 add() {
-	if grep -w "${PWD##*/}" /etc/modulus/blx/ban > /dev/null 2>&1; then
+	check
+
+	if grep -w "${PWD##*/}" /etc/blx/ban > /dev/null 2>&1; then
 		echo "-> ${PWD##*/} is currently banned."
 		exit 0
 	fi
 
-	if grep -w "${PWD##*/}" /etc/modulus/blx/ins > /dev/null 2>&1; then
+	if grep -w "${PWD##*/}" /etc/blx/ins > /dev/null 2>&1; then
                 echo "-> ${PWD##*/} is already installed."
                 exit 0
         fi
@@ -61,13 +72,15 @@ add() {
 
 	echo "--> Installing ${PWD##*/}..."
 	./add
-	echo ${PWD##*/} >> /etc/modulus/blx/ins
+	echo ${PWD##*/} >> /etc/blx/ins
 
 	echo "-> Successfully installed ${PWD##*/}!"
 }
 
 remove() {
-        if ! grep -w "$1" /etc/modulus/blx/ins > /dev/null 2>&1; then
+	check
+
+        if ! grep -w "$1" /etc/blx/ins > /dev/null 2>&1; then
                 echo "-! Package $1 not installed!"
                 exit 1
         fi
@@ -82,15 +95,16 @@ remove() {
 	echo "--> Package found! Removing $1..."
 	./rem
 
-	touch /etc/modulus/blx/ins-tmp
-	grep -v $1 /etc/modulus/blx/ins > /etc/modulus/blx/ins-tmp || true 
-	rm /etc/modulus/blx/ins 
-	mv /etc/modulus/blx/ins-tmp /etc/modulus/blx/ins
+	touch /etc/blx/ins-tmp
+	grep -v $1 /etc/blx/ins > /etc/blx/ins-tmp || true 
+	rm /etc/blx/ins 
+	mv /etc/blx/ins-tmp /etc/blx/ins
 
 	echo "-> Successfully removed $1!"
 }
 
 update() {
+	check
 	echo "-> Updating repositories..."
 	cd $REPO
 	git pull
@@ -98,31 +112,35 @@ update() {
 }
 
 ban() {
-	if grep -w "$1" /etc/modulus/blx/ban > /dev/null 2>&1; then
+	check
+
+	if grep -w "$1" /etc/blx/ban > /dev/null 2>&1; then
 		echo "-> $1 is already banned."
 		exit 0
 	fi
 	
-	if grep -w "$1" /etc/modulus/blx/ins > /dev/null 2>&1; then
+	if grep -w "$1" /etc/blx/ins > /dev/null 2>&1; then
 		remove $1
 	fi
 
 	echo "-> Banning package $1..."
-	echo $1 >> /etc/modulus/blx/ban
+	echo $1 >> /etc/blx/ban
 	echo "-> Successfully banned $1 from installing!"
 }
 
 unban() {
-	if ! grep -w "$1" /etc/modulus/blx/ban > /dev/null 2>&1; then
+	check
+
+	if ! grep -w "$1" /etc/blx/ban > /dev/null 2>&1; then
 		echo "-! $1 isn't banned!"
 		exit 1
 	fi
 
 	echo "-> Unbanning package $1..."
-	touch /etc/modulus/blx/ban-tmp
-	grep -v $1 /etc/modulus/blx/ban > /etc/modulus/blx/ban-tmp || true 
-	rm /etc/modulus/blx/ban 
-       	mv /etc/modulus/blx/ban-tmp /etc/modulus/blx/ban
+	touch /etc/blx/ban-tmp
+	grep -v $1 /etc/blx/ban > /etc/blx/ban-tmp || true 
+	rm /etc/blx/ban 
+       	mv /etc/blx/ban-tmp /etc/blx/ban
 	echo "-> $1 is now installable!"
 }
 
@@ -151,4 +169,51 @@ info() {
 	fi
 }
 
-$1 $2
+setup() {
+	check
+
+	echo "-> Checking for Blocks directory..."
+	if ! [ -d "/etc/blx" ]; then
+		echo "--> Blocks directory not found! Creating one..."
+		mkdir /etc/blx
+	fi
+
+	echo "-> Checking for database files..."
+	if ! [ -f "/etc/blx/ins" ]; then
+		echo "--> Installed package database not found! Creating file..."
+		touch /etc/blx/ins
+	fi
+	if ! [ -f "/etc/blx/ban" ]; then
+		echo "--> Banned package database not found! Creating file..."
+		touch /etc/blx/ban
+	fi
+	
+	echo "-> Checking for Modulus repositories..."
+	if ! [ -d "/etc/blx/repo" ]; then
+		echo "--> Modulus repositories not found! Cloning..."
+		git clone https://github.com/moduluslinux/repo /etc/blx/repo
+	fi
+
+	echo "-> Finished! Blocks should be ready!"
+}
+
+help() {
+	echo '-> Blocks Package Manager (BLX)'
+	echo 'get: Download and install a package from the repositories.'
+	echo 'add: Install an external package in the current directory.'
+	echo 'remove: Remove a package from your system, but keep the files.'
+	echo 'update: Update all of the packages and refresh the repositories.'
+	echo 'ban: Prevent a package from installing completely, even as a dependency.'
+	echo 'unban: Revert the changes and allow a package to be installed again.'
+	echo 'info: Display the information for a specific package in the repositories.'
+	echo 'setup: Sets up Blocks directory structure and repositories.'
+	echo 'help: Currently being displayed, informs what each command does in Blocks.'
+}
+
+REPO=/etc/blx/repo/main
+
+if ! [ "$1" = "" ]; then
+	$1 $2
+else
+	help
+fi
