@@ -4,9 +4,11 @@ Blocks, or known in the command line as "blx" is an adaptable and centric packag
 
 
 ## Installing
-Blocks is in a very unusable state at the moment that is specific to my current setup (and the Modulus file structure), but this will eventually change. For now, if you want to test it, I'd highly advise doing it in a VM as this is currently experimental software. 
-
-To install, just simply copy the blx script into the /usr/bin directory (and mark it as executable).
+(At the moment, Blocks is very experimental, and should not be used as a daily package manager until stable.)
+1. Download the blx script, or clone the repository.
+2. Copy the script to your binary directory. Usually is `/bin` or `/usr/bin`.
+3. Mark the script as executable so it can be ran.
+4. As superuser, run `blx setup` to set up the directory structure and Modulus repositories.
 
 
 
