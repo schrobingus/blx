@@ -26,6 +26,16 @@ get() {
 		exit 1
 	fi
 	cd "$REPO/$1"
+
+	if [ -f "tag" ]; then
+		echo "-> Checking for banned tags..."
+		while read CHECKTAG; do
+			if grep -w "$CHECKTAG" /etc/blx/tag/ban > /dev/null 2>&1; then
+				echo "-> $1 is currently associated with the tag $CHECKTAG, which is banned."
+				exit 0
+			fi
+		done
+	fi
 	
 	echo "--> Package found! Downloading $1..."
 	./get
@@ -33,7 +43,7 @@ get() {
 	if [ -f "dep" ]; then
 		echo "-> Package is calling for dependencies..."
 		while read DEPENDS; do
-			get $DEPENDS
+			$0 get $DEPENDS
 		done < dep
 	fi
 
@@ -66,7 +76,7 @@ add() {
 	if [ -f "dep" ]; then
 		echo "-> Package is calling for dependencies..."
 		while read DEPENDS; do
-			get $DEPENDS
+			$0 get $DEPENDS
 		done < dep
 	fi
 
@@ -103,6 +113,22 @@ remove() {
 	echo "-> Successfully removed $1!"
 }
 
+delete() {
+	check
+	
+	if grep -w "$1" /etc/blx/ins > /dev/null 2>&1; then
+		$0 remove $1
+	fi
+	
+	echo "-> Deleting remaining files..."
+	if [ -f "$REPO/$1/del" ]; then
+		cd "$REPO/$1"
+		./del || true
+	fi
+
+	echo "-> Files have been deleted!"
+}
+
 update() {
 	check
 	echo "-> Updating repositories..."
@@ -120,7 +146,7 @@ ban() {
 	fi
 	
 	if grep -w "$1" /etc/blx/ins > /dev/null 2>&1; then
-		remove $1
+		$0 remove $1
 	fi
 
 	echo "-> Banning package $1..."
@@ -194,26 +220,139 @@ setup() {
 		git clone https://github.com/moduluslinux/repo /etc/blx/repo
 	fi
 
+	echo "-> Checking for tag subsystem,,,"
+	if ! [ -d "/etc/blx/tag" ]; then 
+		echo "--> Tag subsystem not found! Setting up directory..."
+		mkdir /etc/blx/tag
+	fi
+	if ! [ -f "/etc/blx/tag/ban" ]; then
+		echo "--> Banned tag database not found! Creating file..."
+		touch /etc/blx/tag/ban
+	fi
+
 	echo "-> Finished! Blocks should be ready!"
 }
 
+tag() {
+	get() {
+		echo "-> Finding packages in $1..."
+		cd "$REPO"
+		for PACKAGE in */ ; do
+			cd "$REPO/$PACKAGE"
+			if grep -w "$1" tag > /dev/null 2>&1; then
+			       $0 get ${PWD##*/} 
+			fi
+		done		
+	}
+
+	remove() {
+		echo "-> Finding packages in $1..."
+		cd "$REPO"
+		for PACKAGE in */ ; do
+			cd "$REPO/$PACKAGE"
+			if grep -w "$1" tag > /dev/null 2>&1; then
+				$0 remove ${PWD##*/}
+			fi
+		done
+	}
+
+	delete() {
+		echo "-> Finding packages in $1..."
+		cd "$REPO"
+		for PACKAGE in */ ; do
+			cd "$REPO/$PACKAGE"
+			if grep -w "$1" tag > /dev/null 2>&1; then
+				$0 delete ${PWD##*/}
+			fi
+		done
+	}
+
+	search() {
+		cd "$REPO"
+		for PACKAGE in */ ; do
+			cd "$REPO/$PACKAGE"
+			if grep -w "$1" tag > /dev/null 2>&1; then
+				echo ${PWD##*/}
+			fi
+		done
+	}
+
+	ban() {
+		if grep -w "$1" /etc/blx/tag/ban > /dev/null 2>&1; then
+                	echo "-> Tag $1 is already banned."
+                	exit 0
+        	fi
+		
+		echo "-> Checking for any installed packages in $1..."
+		cd "$REPO"
+		for PACKAGE in */ ; do
+			cd "$REPO/$PACKAGE"
+			if grep -w "$1" tag > /dev/null 2>&1; then
+				if grep -w "${PWD##*/}" /etc/blx/ins > /dev/null 2>&1; then
+					$0 remove ${PWD##*}
+        			fi
+			fi
+		done
+
+		echo "-> Banning tag $1..."
+		echo $1 >> /etc/blx/tag/ban
+		echo "-> Successfully banned the $1 tag!"
+	}
+
+	unban() {
+		check
+
+        	if ! grep -w "$1" /etc/blx/tag/ban > /dev/null 2>&1; then
+                	echo "-! Tag $1 isn't banned!"
+                	exit 1
+        	fi
+
+        	echo "-> Unbanning tag $1..."
+        	touch /etc/blx/tag/ban-tmp
+        	grep -v $1 /etc/blx/tag/ban > /etc/blx/tag/ban-tmp || true
+        	rm /etc/blx/tag/ban
+        	mv /etc/blx/tag/ban-tmp /etc/blx/tag/ban
+        	echo "-> Tag $1 can now be used!"
+	}
+
+	help() {
+		echo "-> Blocks Tag Subsystem (blx tag)"
+		echo "get: Download and install the packages that contain this specific tag."
+		echo "remove: Remove all packages containing the tag, but keep the files."
+		echo "delete: Clean all of the package files that contain the tag, and remove the packages if installed."
+		echo "search: List all packages with the specified tag."
+		echo "ban: Prevent any package with that specific tag from installing completely, even as a dependency."
+		echo "unban: Revert the changes and allow the use of the specified tag again."
+		echo "help: Currently being displayed, informs what each command does in the Tagging system."
+	}
+
+	if ! [ "$1" = "" ]; then
+		$1 $2
+	else
+		help
+	fi
+}	
+
 help() {
-	echo '-> Blocks Package Manager (BLX)'
+	echo '-> Blocks Package Manager (blx)'
 	echo 'get: Download and install a package from the repositories.'
 	echo 'add: Install an external package in the current directory.'
 	echo 'remove: Remove a package from your system, but keep the files.'
+	echo 'delete: Clean all of the package files, and remove package if not already done.'
 	echo 'update: Update all of the packages and refresh the repositories.'
 	echo 'ban: Prevent a package from installing completely, even as a dependency.'
 	echo 'unban: Revert the changes and allow a package to be installed again.'
 	echo 'info: Display the information for a specific package in the repositories.'
 	echo 'setup: Sets up Blocks directory structure and repositories.'
+	echo 'tag: A grouping subsystem for organization and effeciency (check blx tag help).'
 	echo 'help: Currently being displayed, informs what each command does in Blocks.'
 }
 
-REPO=/etc/blx/repo/main
+cd /etc/blx/
+. ./pst
 
 if ! [ "$1" = "" ]; then
-	$1 $2
+	$1 $2 $3
 else
 	help
 fi
