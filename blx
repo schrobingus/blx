@@ -34,7 +34,7 @@ get() {
 				echo "-> $1 is currently associated with the tag $CHECKTAG, which is banned."
 				exit 0
 			fi
-		done
+		done < tag
 	fi
 	
 	echo "--> Package found! Downloading $1..."
@@ -65,6 +65,16 @@ add() {
 	if grep -w "${PWD##*/}" /etc/blx/ins > /dev/null 2>&1; then
                 echo "-> ${PWD##*/} is already installed."
                 exit 0
+        fi
+
+	if [ -f "tag" ]; then
+                echo "-> Checking for banned tags..."
+                while read CHECKTAG; do
+                        if grep -w "$CHECKTAG" /etc/blx/tag/ban > /dev/null 2>&1; then
+                                echo "-> ${PWD##*/} is currently associated with the tag $CHECKTAG, which is banned."
+                                exit 0
+                        fi
+                done < tag
         fi
 
 	echo "--> Checking if anything needs to be downloaded..."
@@ -289,7 +299,7 @@ tag() {
 			cd "$REPO/$PACKAGE"
 			if grep -w "$1" tag > /dev/null 2>&1; then
 				if grep -w "${PWD##*/}" /etc/blx/ins > /dev/null 2>&1; then
-					$0 remove ${PWD##*}
+					$0 remove ${PWD##*/}
         			fi
 			fi
 		done
