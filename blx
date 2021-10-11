@@ -10,12 +10,12 @@ check() {
 get() {
 	check
 
-	if grep -w "$1" /etc/blx/ban > /dev/null 2>&1; then
+	if grep -w "$1" /etc/blx/blx@banned > /dev/null 2>&1; then
 		echo "-> $1 is currently banned."
 		exit 0
 	fi
 
-	if grep -w "$1" /etc/blx/ins > /dev/null 2>&1; then
+	if grep -w "$1" /etc/blx/blx@installed > /dev/null 2>&1; then
 		echo "-> $1 is already installed."
 		exit 0
 	fi
@@ -27,29 +27,29 @@ get() {
 	fi
 	cd "$REPO/$1"
 
-	if [ -f "tag" ]; then
+	if [ -f "blx@tags" ]; then
 		echo "-> Checking for banned tags..."
-		while read CHECKTAG; do
-			if grep -w "$CHECKTAG" /etc/blx/tag/ban > /dev/null 2>&1; then
+		while read -r CHECKTAG; do
+			if grep -w "$CHECKTAG" /etc/blx/tag/blx@tag@banned > /dev/null 2>&1; then
 				echo "-> $1 is currently associated with the tag $CHECKTAG, which is banned."
 				exit 0
 			fi
-		done < tag
+		done < blx@tags
 	fi
 	
 	echo "--> Package found! Downloading $1..."
-	./get
+	./blx@get
 	
-	if [ -f "dep" ]; then
+	if [ -f "blx@depends" ]; then
 		echo "-> Package is calling for dependencies..."
-		while read DEPENDS; do
-			$0 get $DEPENDS
-		done < dep
+		while read -r DEPENDS; do
+			$0 get "$DEPENDS"
+		done < blx@depends
 	fi
 
 	echo "--> Installing $1... "
-	./add
-	echo $1 >> /etc/blx/ins
+	./blx@add
+	echo "$1" >> /etc/blx/blx@installed
 
 	echo "-> Successfully installed $1!"
 }
@@ -57,42 +57,42 @@ get() {
 add() {
 	check
 
-	if grep -w "${PWD##*/}" /etc/blx/ban > /dev/null 2>&1; then
+	if grep -w "${PWD##*/}" /etc/blx/blx@banned > /dev/null 2>&1; then
 		echo "-> ${PWD##*/} is currently banned."
 		exit 0
 	fi
 
-	if grep -w "${PWD##*/}" /etc/blx/ins > /dev/null 2>&1; then
+	if grep -w "${PWD##*/}" /etc/blx/blx@installed > /dev/null 2>&1; then
                 echo "-> ${PWD##*/} is already installed."
                 exit 0
         fi
 
-	if [ -f "tag" ]; then
+	if [ -f "blx@tags" ]; then
                 echo "-> Checking for banned tags..."
-                while read CHECKTAG; do
-                        if grep -w "$CHECKTAG" /etc/blx/tag/ban > /dev/null 2>&1; then
+                while read -r CHECKTAG; do
+                        if grep -w "$CHECKTAG" /etc/blx/tag/blx@tag@banned > /dev/null 2>&1; then
                                 echo "-> ${PWD##*/} is currently associated with the tag $CHECKTAG, which is banned."
                                 exit 0
                         fi
-                done < tag
+                done < blx@tags
         fi
 
 	echo "--> Checking if anything needs to be downloaded..."
 	if [ -f "get" ]; then
 		echo "--> Found instructions for download!"
-		./get
+		./blx@get
 	fi
 	
-	if [ -f "dep" ]; then
+	if [ -f "blx@depends" ]; then
 		echo "-> Package is calling for dependencies..."
-		while read DEPENDS; do
-			$0 get $DEPENDS
-		done < dep
+		while read -r DEPENDS; do
+			$0 get "$DEPENDS"
+		done < blx@depends
 	fi
 
 	echo "--> Installing ${PWD##*/}..."
-	./add
-	echo ${PWD##*/} >> /etc/blx/ins
+	./blx@add
+	echo "${PWD##*/}" >> /etc/blx/blx@installed
 
 	echo "-> Successfully installed ${PWD##*/}!"
 }
@@ -100,7 +100,7 @@ add() {
 remove() {
 	check
 
-        if ! grep -w "$1" /etc/blx/ins > /dev/null 2>&1; then
+        if ! grep -w "$1" /etc/blx/blx@installed > /dev/null 2>&1; then
                 echo "-! Package $1 not installed!"
                 exit 1
         fi
@@ -113,12 +113,12 @@ remove() {
 	cd "$REPO/$1"
 
 	echo "--> Package found! Removing $1..."
-	./rem
+	./blx@remove
 
-	touch /etc/blx/ins-tmp
-	grep -v $1 /etc/blx/ins > /etc/blx/ins-tmp || true 
-	rm /etc/blx/ins 
-	mv /etc/blx/ins-tmp /etc/blx/ins
+	touch /etc/blx/blx@installed-tmp
+	grep -v "$1" /etc/blx/blx@installed > /etc/blx/blx@installed-tmp || true 
+	rm /etc/blx/blx@installed 
+	mv /etc/blx/blx@installed-tmp /etc/blx/blx@installed
 
 	echo "-> Successfully removed $1!"
 }
@@ -126,14 +126,14 @@ remove() {
 delete() {
 	check
 	
-	if grep -w "$1" /etc/blx/ins > /dev/null 2>&1; then
-		$0 remove $1
+	if grep -w "$1" /etc/blx/blx@installed > /dev/null 2>&1; then
+		$0 remove "$1"
 	fi
 	
 	echo "-> Deleting remaining files..."
-	if [ -f "$REPO/$1/del" ]; then
+	if [ -f "$REPO/$1/blx@delete" ]; then
 		cd "$REPO/$1"
-		./del || true
+		./blx@delete || true
 	fi
 
 	echo "-> Files have been deleted!"
@@ -142,7 +142,7 @@ delete() {
 update() {
 	check
 	echo "-> Updating repositories..."
-	cd $REPO
+	cd "$REPO"
 	git pull
 	echo "-> Finished!"
 }
@@ -150,33 +150,33 @@ update() {
 ban() {
 	check
 
-	if grep -w "$1" /etc/blx/ban > /dev/null 2>&1; then
+	if grep -w "$1" /etc/blx/blx@banned > /dev/null 2>&1; then
 		echo "-> $1 is already banned."
 		exit 0
 	fi
 	
-	if grep -w "$1" /etc/blx/ins > /dev/null 2>&1; then
-		$0 remove $1
+	if grep -w "$1" /etc/blx/blx@installed > /dev/null 2>&1; then
+		$0 remove "$1"
 	fi
 
 	echo "-> Banning package $1..."
-	echo $1 >> /etc/blx/ban
+	echo "$1" >> /etc/blx/blx@banned
 	echo "-> Successfully banned $1 from installing!"
 }
 
 unban() {
 	check
 
-	if ! grep -w "$1" /etc/blx/ban > /dev/null 2>&1; then
+	if ! grep -w "$1" /etc/blx/blx@banned > /dev/null 2>&1; then
 		echo "-! $1 isn't banned!"
 		exit 1
 	fi
 
 	echo "-> Unbanning package $1..."
-	touch /etc/blx/ban-tmp
-	grep -v $1 /etc/blx/ban > /etc/blx/ban-tmp || true 
-	rm /etc/blx/ban 
-       	mv /etc/blx/ban-tmp /etc/blx/ban
+	touch /etc/blx/blx@banned-tmp
+	grep -v "$1" /etc/blx/blx@banned > /etc/blx/blx@banned-tmp || true 
+	rm /etc/blx/blx@banned 
+       	mv /etc/blx/blx@banned-tmp /etc/blx/blx@banned
 	echo "-> $1 is now installable!"
 }
 
@@ -188,20 +188,20 @@ info() {
 	cd "$REPO/$1"
 
 	echo "Name: $1"
-	if [ -f "aut" ]; then
-		echo "Author: $(cat aut)"
+	if [ -f "blx@author" ]; then
+		echo "Author: $(cat blx@author)"
 	fi
 
-	if [ -f "dsc" ]; then
-		echo "Description: $(cat dsc)"
+	if [ -f "blx@description" ]; then
+		echo "Description: $(cat blx@description)"
 	fi
 
-	if [ -f "dep" ]; then
-		echo "Depends: $(echo $(cat dep))"
+	if [ -f "blx@depends" ]; then
+		echo "Depends: $(echo $(cat blx@depends))"
 	fi
 
-	if [ -f "tag" ]; then
-		echo "Tags: $(echo $(cat tag))"
+	if [ -f "blx@tags" ]; then
+		echo "Tags: $(echo $(cat blx@tags))"
 	fi
 }
 
@@ -215,13 +215,13 @@ setup() {
 	fi
 
 	echo "-> Checking for database files..."
-	if ! [ -f "/etc/blx/ins" ]; then
+	if ! [ -f "/etc/blx/blx@installed" ]; then
 		echo "--> Installed package database not found! Creating file..."
-		touch /etc/blx/ins
+		touch /etc/blx/blx@installed
 	fi
-	if ! [ -f "/etc/blx/ban" ]; then
+	if ! [ -f "/etc/blx/blx@banned" ]; then
 		echo "--> Banned package database not found! Creating file..."
-		touch /etc/blx/ban
+		touch /etc/blx/blx@banned
 	fi
 	
 	echo "-> Checking for Modulus repositories..."
@@ -235,9 +235,38 @@ setup() {
 		echo "--> Tag subsystem not found! Setting up directory..."
 		mkdir /etc/blx/tag
 	fi
-	if ! [ -f "/etc/blx/tag/ban" ]; then
+	if ! [ -f "/etc/blx/tag/blx@tag@banned" ]; then
 		echo "--> Banned tag database not found! Creating file..."
-		touch /etc/blx/tag/ban
+		touch /etc/blx/tag/blx@tag@banned
+	fi
+
+	echo "-> Checking for Blocks config file..."
+	if ! [ -f "/etc/blx/blx@config" ]; then
+		echo "-> Config file not found! Using the default..."
+		cat > /etc/blx/blx@config << EOF
+#!/bin/sh -e
+# Blocks Package Manager Configuration
+# This is a pre-run script that will be executed when Blocks is launched.
+
+# REPO represents where the Repository and all of the packages it contains
+# are located on the system.
+REPO="/etc/blx/repo/main"
+
+# CFLAGS represents the options of the C compiler, and CXX flags represent
+# the options of the C++ compiler (mirroring CFLAGS by default).
+# [Note: -O3 is not a 0 (zero), it is an O.]
+CFLAGS="-O3 -march=native"
+CXXFLAGS="$CFLAGS"
+
+# MAKEFLAGS represent the options of the Make build system. By default, 
+# it is only set to compile the software on all cores.
+MAKEFLAGS="-j$(nproc)"
+
+# TARFLAGS specify how the archive should be extracted. By default, it
+# only extracts the file with no verbose output (to enable verbose output,
+# add 'v').
+TARFLAGS="xf"
+EOF
 	fi
 
 	echo "-> Finished! Blocks should be ready!"
@@ -249,8 +278,8 @@ tag() {
 		cd "$REPO"
 		for PACKAGE in */ ; do
 			cd "$REPO/$PACKAGE"
-			if grep -w "$1" tag > /dev/null 2>&1; then
-			       $0 get ${PWD##*/} 
+			if grep -w "$1" blx@tags > /dev/null 2>&1; then
+			       $0 get "${PWD##*/}" 
 			fi
 		done		
 	}
@@ -260,8 +289,10 @@ tag() {
 		cd "$REPO"
 		for PACKAGE in */ ; do
 			cd "$REPO/$PACKAGE"
-			if grep -w "$1" tag > /dev/null 2>&1; then
-				$0 remove ${PWD##*/}
+			if grep -w "$1" blx@tags > /dev/null 2>&1; then
+				if grep -w "${PWD##*/}" /etc/blx/blx@installed > /dev/null 2>&1; then
+					$0 remove "${PWD##*/}"
+				fi
 			fi
 		done
 	}
@@ -271,8 +302,10 @@ tag() {
 		cd "$REPO"
 		for PACKAGE in */ ; do
 			cd "$REPO/$PACKAGE"
-			if grep -w "$1" tag > /dev/null 2>&1; then
-				$0 delete ${PWD##*/}
+			if grep -w "$1" blx@tags > /dev/null 2>&1; then
+				if grep -w "${PWD##*/}" /etc/blx/blx@installed > /dev/null 2>&1; then
+					$0 delete "${PWD##*/}"
+				fi
 			fi
 		done
 	}
@@ -281,14 +314,14 @@ tag() {
 		cd "$REPO"
 		for PACKAGE in */ ; do
 			cd "$REPO/$PACKAGE"
-			if grep -w "$1" tag > /dev/null 2>&1; then
-				echo ${PWD##*/}
+			if grep -w "$1" blx@tags > /dev/null 2>&1; then
+				echo "${PWD##*/}"
 			fi
 		done
 	}
 
 	ban() {
-		if grep -w "$1" /etc/blx/tag/ban > /dev/null 2>&1; then
+		if grep -w "$1" /etc/blx/tag/blx@tag@banned > /dev/null 2>&1; then
                 	echo "-> Tag $1 is already banned."
                 	exit 0
         	fi
@@ -297,31 +330,31 @@ tag() {
 		cd "$REPO"
 		for PACKAGE in */ ; do
 			cd "$REPO/$PACKAGE"
-			if grep -w "$1" tag > /dev/null 2>&1; then
-				if grep -w "${PWD##*/}" /etc/blx/ins > /dev/null 2>&1; then
-					$0 remove ${PWD##*/}
-        			fi
+			if grep -w "$1" blx@tags > /dev/null 2>&1; then
+				if grep -w "${PWD##*/}" /etc/blx/blx@installed > /dev/null 2>&1; then
+					$0 remove "${PWD##*/}"
+        		fi
 			fi
 		done
 
 		echo "-> Banning tag $1..."
-		echo $1 >> /etc/blx/tag/ban
+		echo "$1" >> /etc/blx/tag/blx@tag@banned
 		echo "-> Successfully banned the $1 tag!"
 	}
 
 	unban() {
 		check
 
-        	if ! grep -w "$1" /etc/blx/tag/ban > /dev/null 2>&1; then
+        	if ! grep -w "$1" /etc/blx/tag/blx@tag@banned > /dev/null 2>&1; then
                 	echo "-! Tag $1 isn't banned!"
                 	exit 1
         	fi
 
         	echo "-> Unbanning tag $1..."
-        	touch /etc/blx/tag/ban-tmp
-        	grep -v $1 /etc/blx/tag/ban > /etc/blx/tag/ban-tmp || true
-        	rm /etc/blx/tag/ban
-        	mv /etc/blx/tag/ban-tmp /etc/blx/tag/ban
+        	touch /etc/blx/tag/blx@tag@banned-tmp
+        	grep -v "$1" /etc/blx/tag/blx@tag@banned > /etc/blx/tag/blx@tag@banned-tmp || true
+        	rm /etc/blx/tag/blx@tag@banned
+        	mv /etc/blx/tag/blx@tag@banned-tmp /etc/blx/tag/blx@tag@banned
         	echo "-> Tag $1 can now be used!"
 	}
 
@@ -337,7 +370,7 @@ tag() {
 	}
 
 	if ! [ "$1" = "" ]; then
-		$1 $2
+		$1 "$2"
 	else
 		help
 	fi
@@ -358,11 +391,14 @@ help() {
 	echo 'help: Currently being displayed, informs what each command does in Blocks.'
 }
 
-cd /etc/blx/
-. ./pst
+if [ -f "/etc/blx/blx@config" ]; then
+	cd /etc/blx
+	# shellcheck source=/dev/null
+	. ./blx@config
+fi
 
 if ! [ "$1" = "" ]; then
-	$1 $2 $3
+	$1 "$2" "$3"
 else
 	help
 fi
